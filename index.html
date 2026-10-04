@@ -320,6 +320,7 @@ footer.foot .tiny{font-size:11.5px;opacity:.75;margin-top:6px}
 
 <!-- ============ PRINT ============ -->
 <section class="view" id="v-print">
+  <div id="printHint"></div>
   <div class="card">
     <h2>Labels</h2>
     <p class="sub">Movers say to label three sides of every box so one label is always facing you. Boxed prints three identical labels per box automatically.</p>
@@ -676,12 +677,18 @@ function renderNow(){
       '<div class="dest">Add your moving day and Boxed will build your timeline around it.</div>'+
       '<div style="margin-top:14px"><button class="btn" style="background:#fff;color:#25182C" onclick="go(\'more\')">Add my moving day</button></div>';
   } else {
-    const label = d>1 ? "days until moving day" : d===1 ? "day until moving day" : d===0 ? "moving day is today" : "days since you moved";
-    hero.innerHTML = '<div class="lbl">'+esc(label)+'</div><div class="big">'+Math.abs(d)+'</div>'+
+    const ad = Math.abs(d);
+    let label, big;
+    if(d>0){ label = d===1 ? "day until moving day" : "days until moving day"; big = String(d); }
+    else if(d===0){ label = "moving day"; big = "Today"; }
+    else { label = ad===1 ? "day since you moved" : "days since you moved"; big = String(ad); }
+    hero.innerHTML = '<div class="lbl">'+esc(label)+'</div><div class="big">'+big+'</div>'+
       (S.to? '<div class="dest">📍 '+esc(S.from||"here")+' → '+esc(S.to)+'</div>':'');
   }
 
-  const packed = S.boxes.length;
+  // Boxes still sealed. Counts up as you pack, down as you unpack at the other
+  // end, so the number stays true after moving day instead of going stale.
+  const packed = S.boxes.filter(b=>b.status!=="unpacked").length;
   const done = S.tasks.filter(t=>t.done).length;
   const pct = S.tasks.length? Math.round(done/S.tasks.length*100):0;
   const roomsCleared = S.rooms.filter(r=> S.boxes.some(b=>b.from===r.id)).length;
@@ -699,6 +706,9 @@ function renderNow(){
   document.getElementById("nowEss").style.display = bare ? "none" : "";
 }
 
+/* True when the move is further away than the first stage, so the timeline
+   should say "not started yet" rather than pinning you to 8 weeks out. */
+function beforeStart(){ const d=daysLeft(); return d!==null && d>BUCKET_DAYS[0]; }
 function currentBucket(){
   const d = daysLeft();
   if(d===null) return 0;
@@ -889,7 +899,7 @@ function renderTasks(){
     if(!showDone) ts = ts.filter(t=>!t.done);
     if(bare) ts = ts.filter(t=>t.key);
     if(!ts.length) return;
-    const now = i===cb ? ' <span class="pill acc">you are here</span>' : '';
+    const now = (i===cb && !beforeStart()) ? ' <span class="pill acc">you are here</span>' : '';
     html += '<div class="bucket" id="bucket-'+i+'"><h3>'+esc(name)+now+'</h3>'+ts.map(t=>
       '<div class="task'+(t.done?" done":"")+'">'+
       '<input type="checkbox" '+(t.done?"checked":"")+' onchange="toggleTask(\''+t.id+'\')">'+
@@ -897,7 +907,9 @@ function renderTasks(){
       (t.custom?'<button class="btn sm ghost" style="padding:2px 8px" onclick="delTask(\''+t.id+'\')">✕</button>':'')+
       '</div>').join("")+'</div>';
   });
-  document.getElementById("taskList").innerHTML = html || '<div class="empty"><span class="e">🎉</span><b>Nothing left in this view</b><p class="sub">Try showing done tasks, or turn off bare minimum mode.</p></div>';
+  document.getElementById("taskList").innerHTML = html || (S.tasks.length===0
+    ? '<div class="empty"><span class="e">📋</span><b>No tasks yet</b><p class="sub">Tap ＋ Add your own to start building your list.</p></div>'
+    : '<div class="empty"><span class="e">🎉</span><b>Nothing left in this view</b><p class="sub">Try showing done tasks, or turn off bare minimum mode.</p></div>');
   renderStageTrack();
 }
 
@@ -914,21 +926,27 @@ function stageDate(i){
 }
 function renderStageTrack(){
   const el=document.getElementById("stageTrack"); if(!el) return;
-  const hasDate=!!S.moveDate, cb=currentBucket();
+  const hasDate=!!S.moveDate, cb=currentBucket(), early=beforeStart();
+  // Count the same tasks the list below is showing, so the two agree.
+  const inStage=(i)=>{ let ts=S.tasks.filter(t=>t.b===i); if(bare) ts=ts.filter(t=>t.key); return ts; };
   const cells=BUCKETS.map((name,i)=>{
-    const ts=S.tasks.filter(t=>t.b===i), done=ts.filter(t=>t.done).length;
+    const ts=inStage(i), done=ts.filter(t=>t.done).length;
     const pct=ts.length?Math.round(done/ts.length*100):0;
-    const cur=hasDate && i===cb;
+    const cur=hasDate && !early && i===cb;
     return '<button class="trkcell'+(cur?" on":"")+'" onclick="jumpStage('+i+')" title="'+esc(name)+'" aria-label="'+esc(name)+', '+pct+' percent done">'+
       '<span class="trkbar"><span class="trkfill" style="width:'+pct+'%"></span></span>'+
       '<span class="trklbl">'+STAGE_SHORT[i]+'</span></button>';
   }).join("");
   let cap;
-  if(hasDate){
-    const ts=S.tasks.filter(t=>t.b===cb), done=ts.filter(t=>t.done).length, d=stageDate(cb);
-    cap='<div class="trkcap"><b>You are here:</b> '+esc(BUCKETS[cb])+(d?" · "+d:"")+" — "+done+" of "+ts.length+" done</div>";
-  } else {
+  if(!hasDate){
     cap='<div class="trkcap muted">Add your move date under More to see your schedule with real dates.</div>';
+  } else if(early){
+    const d=daysLeft(), wks=Math.round(d/7), start=stageDate(0).replace(/^around /,"");
+    cap='<div class="trkcap muted"><b>Not started yet.</b> Your move is about '+wks+' weeks away. '+
+      'The first stage begins '+esc(start)+'. Nothing is late, and you can tick things off early if you want to.</div>';
+  } else {
+    const ts=inStage(cb), done=ts.filter(t=>t.done).length, d=stageDate(cb);
+    cap='<div class="trkcap"><b>You are here:</b> '+esc(BUCKETS[cb])+(d?" · "+d:"")+" — "+done+" of "+ts.length+" done</div>";
   }
   el.innerHTML='<div class="track">'+cells+'</div>'+cap;
 }
@@ -972,8 +990,8 @@ function renderMore(){
   document.getElementById("budgetList").innerHTML = S.costs.map(c=>
     '<div class="costrow">'+
     '<span class="cl">'+esc(c.label)+'</span>'+
-    '<input type="number" inputmode="decimal" placeholder="estimate" value="'+((+c.est)?(+c.est):"")+'" onchange="setCost(\''+c.id+'\',\'est\',this.value)" aria-label="Estimated cost for '+esc(c.label)+'">'+
-    '<input type="number" inputmode="decimal" placeholder="actual" value="'+((+c.act)?(+c.act):"")+'" onchange="setCost(\''+c.id+'\',\'act\',this.value)" aria-label="Actual cost for '+esc(c.label)+'">'+
+    '<input type="number" min="0" inputmode="decimal" placeholder="estimate" value="'+((+c.est)?(+c.est):"")+'" onchange="setCost(\''+c.id+'\',\'est\',this.value)" aria-label="Estimated cost for '+esc(c.label)+'">'+
+    '<input type="number" min="0" inputmode="decimal" placeholder="actual" value="'+((+c.act)?(+c.act):"")+'" onchange="setCost(\''+c.id+'\',\'act\',this.value)" aria-label="Actual cost for '+esc(c.label)+'">'+
     '<button class="btn sm ghost" style="padding:2px 6px" onclick="delCost(\''+c.id+'\')" aria-label="Remove '+esc(c.label)+'">✕</button></div>').join("");
 
   document.getElementById("roomList").innerHTML = S.rooms.map(r=>
@@ -1009,19 +1027,19 @@ function saveNotify(){
   if(!v) return toast("Type a name first");
   S.notify.push({id:uid(),name:v,done:false}); touch(); closeModal(); renderMore();
 }
-function setCost(id,f,v){ const c=S.costs.find(x=>x.id===id); if(c){ c[f]=+v||0; touch(); renderMore(); } }
+function setCost(id,f,v){ const c=S.costs.find(x=>x.id===id); if(c){ c[f]=Math.max(0,+v||0); touch(); renderMore(); } }
 function delCost(id){ S.costs=S.costs.filter(c=>c.id!==id); touch(); renderMore(); }
 function openCost(){
   modal('<h2>Add a cost</h2><label class="f">What for</label><input type="text" id="cL" placeholder="Locksmith">'+
-  '<div class="grid2"><div><label class="f">Estimated</label><input type="number" id="cE" value="0"></div>'+
-  '<div><label class="f">Actual</label><input type="number" id="cA" value="0"></div></div>'+
+  '<div class="grid2"><div><label class="f">Estimated</label><input type="number" min="0" id="cE" value="0"></div>'+
+  '<div><label class="f">Actual</label><input type="number" min="0" id="cA" value="0"></div></div>'+
   '<div class="btnrow" style="margin-top:14px"><button class="btn primary wide" onclick="saveCost()">Add</button><button class="btn sm ghost" onclick="closeModal()">Cancel</button></div>');
   setTimeout(()=>document.getElementById("cL").focus(),80);
 }
 function saveCost(){
   const l=document.getElementById("cL").value.trim();
   if(!l) return toast("Give it a name first");
-  S.costs.push({id:uid(),label:l,est:+document.getElementById("cE").value||0,act:+document.getElementById("cA").value||0});
+  S.costs.push({id:uid(),label:l,est:Math.max(0,+document.getElementById("cE").value||0),act:Math.max(0,+document.getElementById("cA").value||0)});
   touch(); closeModal(); renderMore();
 }
 function openRoom(id){
@@ -1127,6 +1145,15 @@ function delDecision(id){ S.decisions=S.decisions.filter(d=>d.id!==id); touch();
 /* =========================================================
    PRINTING
    ========================================================= */
+/* iOS home-screen web apps have no print dialog, so if someone opens Boxed
+   from their home screen on an iPhone, point them back to Safari to print. */
+function renderPrintHint(){
+  const el=document.getElementById("printHint"); if(!el) return;
+  const iosStandalone = /iPad|iPhone|iPod/.test(navigator.userAgent) && window.navigator.standalone===true;
+  el.innerHTML = iosStandalone
+    ? '<div class="banner warn"><b>Printing from the home screen icon?</b><br>iPhone and iPad cannot print from a home-screen app. Open Boxed in Safari instead and print from there. Everything you have saved will still be here.</div>'
+    : "";
+}
 function pArea(){ return document.getElementById("printArea"); }
 function doPrint(html){ pArea().innerHTML=html; setTimeout(()=>{ window.print(); }, 60); }
 
@@ -1256,13 +1283,18 @@ function wipe(){
    ========================================================= */
 function openHelp(){
   const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  // The same build runs as a downloaded file and as a hosted page, so the
+  // wording follows whichever it actually is.
+  const hosted = location.protocol.indexOf("http")===0;
+  const it = hosted ? "this page" : "this file";
   modal('<h2>How Boxed works</h2>'+
   '<div class="banner info"><b>The one habit that makes this worth it:</b> when you seal a box, add it here and write what is inside in plain words. Everything else in Boxed is built on top of that one habit.</div>'+
+  (SEED ? '<div class="banner warn" style="margin-top:10px">You are looking at the <b>demo</b>, filled with a sample move so you can try everything. To clear it and start your own, go to <b>More</b> and tap <b>Start over</b>.</div>' : '')+
   '<h3 style="margin:16px 0 6px">Add Boxed to your home screen</h3>'+
   '<p class="sub">It then opens full screen like an app, and still works with no signal.</p>'+
   (ios
-    ? '<p class="sub"><b>On iPhone or iPad:</b> open this file in Safari, tap the <b>Share</b> button at the bottom (the square with the arrow), scroll down, tap <b>Add to Home Screen</b>, then tap <b>Add</b>.</p>'
-    : '<p class="sub"><b>On Android:</b> open this file in Chrome, tap the <b>⋮</b> menu at the top right, tap <b>Add to Home screen</b>, then tap <b>Add</b>.<br><b>On iPhone or iPad:</b> open it in Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>')+
+    ? '<p class="sub"><b>On iPhone or iPad:</b> open '+it+' in Safari, tap the <b>Share</b> button at the bottom (the square with the arrow), scroll down, tap <b>Add to Home Screen</b>, then tap <b>Add</b>.</p>'
+    : '<p class="sub"><b>On Android:</b> open '+it+' in Chrome, tap the <b>⋮</b> menu at the top right, tap <b>Add to Home screen</b>, then tap <b>Add</b>.<br><b>On iPhone or iPad:</b> open it in Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>')+
   '<h3 style="margin:16px 0 6px">Where your data lives</h3>'+
   '<p class="sub">Inside this browser, on this device. Nothing is sent anywhere and there is no account. That also means nobody can get it back for you, so save a backup file every week or so. On an iPhone, Safari can clear stored data if you do not open a page for a while, which is the main reason the backup matters.</p>'+
   '<h3 style="margin:16px 0 6px">Moving it to another device</h3>'+
@@ -1282,7 +1314,7 @@ if(window.matchMedia){
   const mq=window.matchMedia("(prefers-color-scheme: light)");
   if(mq.addEventListener) mq.addEventListener("change",()=>{ if(S.theme==="auto") applyTheme(); });
 }
-renderNow(); renderBoxes(); renderTasks(); renderMore();
+renderNow(); renderBoxes(); renderTasks(); renderMore(); renderPrintHint();
 window.addEventListener("beforeunload", save);
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeModal(); });
 </script>
