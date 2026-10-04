@@ -51,7 +51,8 @@ header.top{
 .mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--a1),var(--a2));flex:none;position:relative}
 .mark:after{content:"";position:absolute;inset:7px 5px auto 5px;height:3px;border-radius:2px;background:rgba(255,255,255,.85)}
 .spacer{flex:1}
-.iconbtn{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:17px;background:var(--s2);border:1px solid var(--bd)}
+.iconbtn{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:17px;
+  line-height:1;padding:0;background:var(--s2);border:1px solid var(--bd)}
 .iconbtn:active{transform:scale(.94)}
 
 section.view{display:none;padding-top:18px}
@@ -109,6 +110,7 @@ textarea{min-height:82px;resize:vertical;line-height:1.5}
 .chk{display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:600;padding:9px 0}
 .chk input{width:20px;height:20px;accent-color:var(--a1);flex:none}
 .chkmain{display:flex;align-items:center;gap:9px;flex:1;min-width:0;margin:0;cursor:pointer}
+.taskmain{display:flex;align-items:flex-start;gap:11px;flex:1;min-width:0;margin:0;cursor:pointer}
 
 /* ============ PILLS ============ */
 .pill{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;background:var(--s2);border:1px solid var(--bd)}
@@ -117,6 +119,13 @@ textarea{min-height:82px;resize:vertical;line-height:1.5}
 .pill.good{background:#10B98122;border-color:#10B98166;color:#0E9F72}
 .pill.acc{background:var(--a1);border-color:transparent;color:#fff}
 .pills{display:flex;gap:7px;flex-wrap:wrap}
+
+/* Icon-only control. line-height:1 and padding:0 keep the glyph optically
+   centred; inherited line-height pushes glyphs upward. */
+.xbtn{width:34px;height:34px;flex:none;display:grid;place-items:center;line-height:1;padding:0;
+  border-radius:10px;background:transparent;border:0;color:var(--dim);font-size:15px}
+.xbtn:active{background:var(--s2)}
+.xbtn svg{display:block}
 
 /* ============ NOW SCREEN ============ */
 .hero{background:linear-gradient(140deg,var(--a2),var(--a1));border-radius:22px;padding:22px;color:#fff;margin-bottom:14px;position:relative;overflow:hidden}
@@ -142,7 +151,8 @@ textarea{min-height:82px;resize:vertical;line-height:1.5}
 .searchbar input{padding-left:40px;font-size:16px}
 .searchbar .mag{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.5}
 .boxitem{display:flex;gap:11px;padding:13px;border-radius:15px;background:var(--sf);border:1px solid var(--bd);margin-bottom:9px;align-items:flex-start;text-align:left;width:100%}
-.boxnum{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:17px;color:#fff;flex:none}
+.boxnum{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:17px;
+  line-height:1;color:#fff;flex:none}
 .boxmeta{flex:1;min-width:0}
 .boxmeta .t{font-weight:700;font-size:15px}
 .boxmeta .c{color:var(--dim);font-size:13px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
@@ -184,6 +194,11 @@ textarea{min-height:82px;resize:vertical;line-height:1.5}
 @keyframes up{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}
 @media(min-width:700px){.sheet{position:relative;margin:6vh auto;max-width:640px;border-radius:22px;border:1px solid var(--bd)}}
 .grab{width:40px;height:4px;border-radius:2px;background:var(--bd);margin:8px auto 14px}
+/* Keeps the primary action in reach on short screens and in landscape,
+   where a tall sheet would otherwise push it below the fold. */
+.sheet .btnrow.stick{position:sticky;bottom:0;z-index:2;background:var(--sf);
+  margin:16px -16px calc(-24px - env(safe-area-inset-bottom));
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--bd)}
 .sheet h2{font-size:19px;margin-bottom:12px}
 
 /* ============ TOAST + BANNER ============ */
@@ -468,6 +483,10 @@ const SEED = true;
 
 const KEY = "dtd_boxed_v1";
 const SHOP = "https://dreamstodone.etsy.com";
+/* Remove icon as SVG, not a text glyph: fonts place glyphs on a baseline,
+   so a character can never be reliably centred in an icon button. */
+const XICON = '<svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true" focusable="false">'+
+  '<path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
 
 /* ---------- storage safety ---------- */
 let CAN_STORE = false;
@@ -752,14 +771,14 @@ function renderEss(){
   }
   el.innerHTML = S.ess.map(e=>
     '<div class="chk"><label class="chkmain"><input type="checkbox" '+(e.done?"checked":"")+' onchange="toggleEss(\''+e.id+'\')"><span style="flex:1;'+(e.done?"opacity:.5;text-decoration:line-through":"")+'">'+esc(e.text)+'</span></label>'+
-    '<button class="btn sm ghost" style="padding:2px 8px" onclick="delEss(\''+e.id+'\')" aria-label="Remove '+esc(e.text)+'">✕</button></div>'
+    '<button class="xbtn" onclick="delEss(\''+e.id+'\')" aria-label="Remove '+esc(e.text)+'">'+XICON+'</button></div>'
   ).join("");
 }
 function toggleEss(id){ const e=S.ess.find(x=>x.id===id); if(e){ e.done=!e.done; touch(); renderEss(); } }
 function delEss(id){ S.ess=S.ess.filter(e=>e.id!==id); touch(); renderEss(); }
 function openEss(){
   modal('<h2>Add to your first-night box</h2><label class="f">Item</label><input type="text" id="eName" placeholder="Baby formula, phone charger, passports">'+
-  '<div class="btnrow" style="margin-top:14px"><button class="btn primary wide" onclick="saveEss()">Add</button><button class="btn sm ghost" onclick="closeModal()">Cancel</button></div>');
+  '<div class="btnrow stick"><button class="btn primary wide" onclick="saveEss()">Add</button><button class="btn sm ghost" onclick="closeModal()">Cancel</button></div>');
   setTimeout(()=>document.getElementById("eName").focus(),80);
 }
 function saveEss(){
@@ -844,7 +863,7 @@ function openBox(id){
     '<div class="chk"><input type="checkbox" id="bOpen" '+(b&&b.openFirst?"checked":"")+'><label for="bOpen" style="margin:0;text-transform:none;font-size:14.5px;color:var(--tx)">Open first. I will need this on day one</label></div>'+
     '<div class="chk"><input type="checkbox" id="bFrag" '+(b&&b.fragile?"checked":"")+'><label for="bFrag" style="margin:0;text-transform:none;font-size:14.5px;color:var(--tx)">Fragile</label></div>'+
     '<label class="f">Note (optional)</label><input type="text" id="bNote" value="'+esc(b?b.note:"")+'" placeholder="Heavy. Two people.">'+
-    '<div class="btnrow" style="margin-top:16px">'+
+    '<div class="btnrow stick">'+
       '<button class="btn primary wide" onclick="saveBox('+(b?"'"+b.id+"'":"null")+')">Save box</button>'+
       (b?'<button class="btn sm danger" onclick="delBox(\''+b.id+'\')">Delete</button>':'')+
       '<button class="btn sm ghost" onclick="closeModal()">Cancel</button>'+
@@ -902,9 +921,9 @@ function renderTasks(){
     const now = (i===cb && !beforeStart()) ? ' <span class="pill acc">you are here</span>' : '';
     html += '<div class="bucket" id="bucket-'+i+'"><h3>'+esc(name)+now+'</h3>'+ts.map(t=>
       '<div class="task'+(t.done?" done":"")+'">'+
-      '<input type="checkbox" '+(t.done?"checked":"")+' onchange="toggleTask(\''+t.id+'\')">'+
-      '<span class="tt">'+esc(t.text)+(t.key?' <span class="star">★</span>':'')+'</span>'+
-      (t.custom?'<button class="btn sm ghost" style="padding:2px 8px" onclick="delTask(\''+t.id+'\')">✕</button>':'')+
+      '<label class="taskmain"><input type="checkbox" '+(t.done?"checked":"")+' onchange="toggleTask(\''+t.id+'\')">'+
+      '<span class="tt">'+esc(t.text)+(t.key?' <span class="star">★</span>':'')+'</span></label>'+
+      (t.custom?'<button class="xbtn" onclick="delTask(\''+t.id+'\')" aria-label="Remove this task">'+XICON+'</button>':'')+
       '</div>').join("")+'</div>';
   });
   document.getElementById("taskList").innerHTML = html || (S.tasks.length===0
@@ -962,7 +981,7 @@ function openTask(){
   modal('<h2>Add a task</h2><label class="f">What needs doing</label><input type="text" id="tText" placeholder="Return the neighbour’s ladder">'+
     '<label class="f">When</label><select id="tB">'+BUCKETS.map((b,i)=>'<option value="'+i+'">'+esc(b)+'</option>').join("")+'</select>'+
     '<div class="chk"><input type="checkbox" id="tKey"><label for="tKey" style="margin:0;text-transform:none;font-size:14.5px;color:var(--tx)">This one is critical, keep it in bare minimum mode</label></div>'+
-    '<div class="btnrow" style="margin-top:14px"><button class="btn primary wide" onclick="saveTask()">Add it</button><button class="btn sm ghost" onclick="closeModal()">Cancel</button></div>');
+    '<div class="btnrow stick"><button class="btn primary wide" onclick="saveTask()">Add it</button><button class="btn sm ghost" onclick="closeModal()">Cancel</button></div>');
   setTimeout(()=>document.getElementById("tText").focus(),80);
 }
 function saveTask(){
@@ -981,7 +1000,7 @@ function renderMore(){
   document.getElementById("notifyList").innerHTML = S.notify.map(n=>
     '<div class="chk"><label class="chkmain"><input type="checkbox" '+(n.done?"checked":"")+' onchange="toggleNotify(\''+n.id+'\')">'+
     '<span style="flex:1;'+(n.done?"opacity:.5;text-decoration:line-through":"")+'">'+esc(n.name)+'</span></label>'+
-    '<button class="btn sm ghost" style="padding:2px 8px" onclick="delNotify(\''+n.id+'\')">✕</button></div>').join("");
+    '<button class="xbtn" onclick="delNotify(\''+n.id+'\')" aria-label="Remove '+esc(n.name)+'">'+XICON+'</button></div>').join("");
 
   let est=0, act=0;
   S.costs.forEach(c=>{ est+=(+c.est||0); act+=(+c.act||0); });
@@ -992,7 +1011,7 @@ function renderMore(){
     '<span class="cl">'+esc(c.label)+'</span>'+
     '<input type="number" min="0" inputmode="decimal" placeholder="estimate" value="'+((+c.est)?(+c.est):"")+'" onchange="setCost(\''+c.id+'\',\'est\',this.value)" aria-label="Estimated cost for '+esc(c.label)+'">'+
     '<input type="number" min="0" inputmode="decimal" placeholder="actual" value="'+((+c.act)?(+c.act):"")+'" onchange="setCost(\''+c.id+'\',\'act\',this.value)" aria-label="Actual cost for '+esc(c.label)+'">'+
-    '<button class="btn sm ghost" style="padding:2px 6px" onclick="delCost(\''+c.id+'\')" aria-label="Remove '+esc(c.label)+'">✕</button></div>').join("");
+    '<button class="xbtn" onclick="delCost(\''+c.id+'\')" aria-label="Remove '+esc(c.label)+'">'+XICON+'</button></div>').join("");
 
   document.getElementById("roomList").innerHTML = S.rooms.map(r=>
     '<button class="row" style="width:100%;padding:9px 0;border-bottom:1px solid var(--bd);text-align:left" onclick="openRoom(\''+r.id+'\')">'+
@@ -1019,7 +1038,7 @@ function toggleNotify(id){ const n=S.notify.find(x=>x.id===id); if(n){ n.done=!n
 function delNotify(id){ S.notify=S.notify.filter(n=>n.id!==id); touch(); renderMore(); }
 function openNotify(){
   modal('<h2>Who else needs telling?</h2><label class="f">Name</label><input type="text" id="nName" placeholder="Book club, dog groomer, the milkman">'+
-  '<div class="btnrow" style="margin-top:14px"><button class="btn primary wide" onclick="saveNotify()">Add</button><button class="btn sm ghost" onclick="closeModal()">Cancel</button></div>');
+  '<div class="btnrow stick"><button class="btn primary wide" onclick="saveNotify()">Add</button><button class="btn sm ghost" onclick="closeModal()">Cancel</button></div>');
   setTimeout(()=>document.getElementById("nName").focus(),80);
 }
 function saveNotify(){
@@ -1033,7 +1052,7 @@ function openCost(){
   modal('<h2>Add a cost</h2><label class="f">What for</label><input type="text" id="cL" placeholder="Locksmith">'+
   '<div class="grid2"><div><label class="f">Estimated</label><input type="number" min="0" id="cE" value="0"></div>'+
   '<div><label class="f">Actual</label><input type="number" min="0" id="cA" value="0"></div></div>'+
-  '<div class="btnrow" style="margin-top:14px"><button class="btn primary wide" onclick="saveCost()">Add</button><button class="btn sm ghost" onclick="closeModal()">Cancel</button></div>');
+  '<div class="btnrow stick"><button class="btn primary wide" onclick="saveCost()">Add</button><button class="btn sm ghost" onclick="closeModal()">Cancel</button></div>');
   setTimeout(()=>document.getElementById("cL").focus(),80);
 }
 function saveCost(){
@@ -1048,7 +1067,7 @@ function openRoom(id){
   '<label class="f">Colour</label><div class="row" style="flex-wrap:wrap;gap:8px" id="swRow">'+
   ROOM_COLORS.map(c=>'<button class="sw'+(r&&r.color===c?" on":"")+'" style="background:'+c+'" onclick="pickColor(this,\''+c+'\')"></button>').join("")+'</div>'+
   '<input type="hidden" id="rC" value="'+(r?r.color:ROOM_COLORS[0])+'">'+
-  '<div class="btnrow" style="margin-top:16px"><button class="btn primary wide" onclick="saveRoom('+(r?"'"+r.id+"'":"null")+')">Save</button>'+
+  '<div class="btnrow stick"><button class="btn primary wide" onclick="saveRoom('+(r?"'"+r.id+"'":"null")+')">Save</button>'+
   (r?'<button class="btn sm danger" onclick="delRoom(\''+r.id+'\')">Delete</button>':'')+
   '<button class="btn sm ghost" onclick="closeModal()">Cancel</button></div>');
 }
@@ -1138,7 +1157,7 @@ function renderDec(){
   el.innerHTML = S.decisions.slice(0,12).map(d=>
     '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--bd)"><span style="flex:1;font-size:14px">'+esc(d.item)+'</span>'+
     '<span class="pill'+(d.v==="later"?" warn":d.v==="keep"?" good":"")+'">'+lbl[d.v]+'</span>'+
-    '<button class="btn sm ghost" style="padding:2px 8px;margin-left:4px" onclick="delDecision(\''+d.id+'\')" aria-label="Remove '+esc(d.item)+'">✕</button></div>').join("");
+    '<button class="xbtn" onclick="delDecision(\''+d.id+'\')" aria-label="Remove '+esc(d.item)+'">'+XICON+'</button></div>').join("");
 }
 function delDecision(id){ S.decisions=S.decisions.filter(d=>d.id!==id); touch(); openDecide(); }
 

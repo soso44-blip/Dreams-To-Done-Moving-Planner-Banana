@@ -2,7 +2,7 @@
    Everything (CSS, JS, fonts, QR encoder) is inline in index.html, so there is
    only the shell plus icons to cache. BUMP THIS VERSION before every redeploy
    so returning visitors get the new build. */
-const CACHE = "boxed-v2";
+const CACHE = "boxed-v3";
 const ASSETS = [
   "./",
   "./index.html",
