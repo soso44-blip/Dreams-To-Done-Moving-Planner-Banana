@@ -247,8 +247,9 @@ footer.foot .tiny{font-size:11.5px;opacity:.75;margin-top:6px}
   .plabel .pleft{min-width:0;flex:1}
   .plabel .pn{font-size:28pt;font-weight:900;line-height:1}
   .plabel .pr{font-size:14pt;font-weight:800;text-transform:uppercase;margin-top:1mm;word-break:break-word}
-  .plabel .pqr{width:24mm;height:24mm;flex:none}
-  .plabel .pqr svg{display:block;width:100%;height:100%}
+  .plabel .pqr{width:26mm;flex:none;display:flex;flex-direction:column;align-items:center}
+  .plabel .pqr svg{display:block;width:26mm;height:26mm}
+  .plabel .pqc{font-size:6pt;font-weight:700;line-height:1.05;text-align:center;margin-top:1mm;color:#15121A}
   .plabel .pc{font-size:9pt;margin-top:2mm;line-height:1.3;max-height:11mm;overflow:hidden}
   .plabel .pf{font-size:11pt;font-weight:900;margin-top:1mm}
   .psign{page-break-after:always;text-align:center;padding-top:40mm;font-family:Arial,Helvetica,sans-serif}
@@ -345,7 +346,9 @@ footer.foot .tiny{font-size:11.5px;opacity:.75;margin-top:6px}
       <option value="new">Only boxes I have not printed yet</option>
       <option value="openfirst">Only Open First boxes</option>
     </select>
-    <div class="chk" style="margin-top:12px"><input type="checkbox" id="labelQR" checked><label for="labelQR" style="margin:0;text-transform:none;font-size:14px;color:var(--tx)">Add a scan code to each label — point any phone camera at it to see what is inside</label></div>
+    <div class="chk" style="margin-top:12px"><input type="checkbox" id="labelQR" checked><label for="labelQR" style="margin:0;text-transform:none;font-size:14px;color:var(--tx)">Add a scan code to each label. Point a phone camera at it to see the box’s full contents and note — no app and no internet needed.</label></div>
+    <p class="sub" style="margin-top:8px">The code opens in your phone’s contacts view showing everything in the box. Just read it and close — there is no need to save it. It works fully offline.</p>
+    <p class="sub" style="margin-top:8px">Your phone shows the contents as text. Depending on the phone it may also offer to search the web for them — that is normal, the contents are already on screen.</p>
     <div class="btnrow" style="margin-top:14px"><button class="btn primary wide" onclick="printLabels()">🖨 Print labels</button></div>
   </div>
   <div class="card">
@@ -1192,13 +1195,25 @@ function doPrint(html){ pArea().innerHTML=html; setTimeout(()=>{ window.print();
 
 /* Plain-text summary a phone camera shows when the label is scanned. Kept short
    so the code stays low-density and reliably scannable at label size. */
+function vesc(s){ return String(s).replace(/\\/g,"\\\\").replace(/\n/g,"\\n").replace(/,/g,"\\,").replace(/;/g,"\\;"); }
+function boxQRData(b){
+  const r=room(b.to).name;
+  const fn="Box "+b.num+" - "+r;
+  const parts=[];
+  const flags=[]; if(b.openFirst) flags.push("Open first"); if(b.fragile) flags.push("Fragile");
+  if(flags.length) parts.push(flags.join(", "));
+  const items=(b.items||"").trim(); if(items) parts.push("Contents: "+items.slice(0,180));
+  const note=(b.note||"").trim(); if(note) parts.push("Note: "+note.slice(0,90));
+  const body=parts.join("\n");
+  return "BEGIN:VCARD\nVERSION:3.0\nFN:"+vesc(fn)+"\nN:;"+vesc(fn)+";;;\nORG:Boxed moving label\nNOTE:"+vesc(body)+"\nEND:VCARD";
+}
 function boxQRText(b){
   const r=room(b.to).name;
-  let s="Box "+b.num+": "+r;
-  const fl=(b.openFirst?" [OPEN FIRST]":"")+(b.fragile?" [FRAGILE]":"");
-  if(fl) s+=fl;
+  let s="Box "+b.num+" - "+r;
+  const flags=[]; if(b.openFirst) flags.push("Open first"); if(b.fragile) flags.push("Fragile");
+  if(flags.length) s+="\n"+flags.join(", ");
   const items=(b.items||"").trim();
-  if(items) s+="\n"+items.slice(0,100);
+  if(items) s+="\nContents: "+items.slice(0,100);
   return s;
 }
 /* Offline QR as crisp SVG (single path). Returns "" if the encoder is missing
@@ -1225,7 +1240,7 @@ function printLabels(){
   let html='';
   list.forEach(b=>{
     const r=room(b.to);
-    const qr = withQR ? '<div class="pqr">'+qrSVG(boxQRText(b))+'</div>' : '';
+    const qr = withQR ? '<div class="pqr">'+qrSVG(boxQRData(b))+'<div class="pqc">Scan for full contents</div></div>' : '';
     const one='<div class="plabel"><div class="pband" style="background:'+r.color+'"></div>'+
       '<div class="phead"><div class="pleft"><div class="pn">'+b.num+'</div><div class="pr">'+esc(r.name)+'</div></div>'+qr+'</div>'+
       '<div class="pc">'+esc((b.items||"").slice(0,120))+'</div>'+
